@@ -55,19 +55,60 @@ from langchain.agents import AgentExecutor
 from langchain.agents.react.agent import create_react_agent
 from langchain_openai import ChatOpenAI
 from langchain_tavily import TavilySearch
+from langchain_core.output_parsers.pydantic import PydanticOutputParser
+from langchain_core.prompts import PromptTemplate
+from langchain_core.runnables import RunnableLambda
+import streamlit as st
+import pandas as pd  # Import pandas for DataFrame support
+
+from prompt import REACT_PROMPT_WITH_FORMAT_INSTRUCTIONS
+from schema import AgentResponse
 
 load_dotenv()
 
 tool = [TavilySearch()]
 llm = ChatOpenAI(model="gpt-4", temperature=0)
-react_prompt = hub.pull("hwchase17/react")
-agent = create_react_agent(llm=llm, tools=tool, prompt=react_prompt)
-agent_executor = AgentExecutor(agent=agent, tools=tool, verbose=True)
+##llm = ChatOllama(model="gpt-oss:20b", temperature=0)
+##react_prompt = hub.pull("hwchase17/react")
+output_parser = PydanticOutputParser(pydantic_object=AgentResponse)
+
+react_prompt_with_format_instructions = PromptTemplate(
+    template=REACT_PROMPT_WITH_FORMAT_INSTRUCTIONS,
+    input_variables=["input", "agent_scratchpad", "tools", "tool_names"],
+).partial(format_instructions=output_parser.get_format_instructions())
+
+agent = create_react_agent(llm=llm, tools=tool, prompt=react_prompt_with_format_instructions)
+agent_executor = AgentExecutor(agent=agent, tools=tool, verbose=True, handle_parsing_errors=True)
 def main():
     # Runs the agent to search for 3 AI job postings on LinkedIn in Toronto using LangChain and summarizes them.
     # Example: The agent fetches job listings and provides a summary of each.
-    result = agent_executor.invoke(input={"input":"Search a 3 AI job posting on LinkedIn using langchain in Toronto Area and summarize it."})
-    print(result)
+    try:
+        result = agent_executor.invoke(input={"input":"Search a 3 AI job posting on LinkedIn using langchain in Toronto Area and summarize it."})
+        output = result.get('output')
+        if not output:
+            st.error("No output received from agent. Please try again or check your agent configuration.")
+            return
+        import json
+        try:
+            parsed = json.loads(output)
+        except Exception as e:
+            st.error(f"Failed to parse agent output: {e}\nRaw output: {output}")
+            return
+        answer = parsed.get("answer", [])  # The summary of job postings as List[str]
+        sources = parsed.get("sources", [])  # List of source URLs
+
+        # Create DataFrame with each answer item and corresponding source
+        data = []
+        for i, job_summary in enumerate(answer):
+            source_url = sources[i]["url"] if i < len(sources) else "N/A"
+            data.append({"Job Summary": job_summary, "Source": source_url})
+
+        df = pd.DataFrame(data)
+        st.write("# AI Job Postings in Toronto Area")
+        st.write("Here are some AI job postings I found on LinkedIn:")
+        st.dataframe(df)  # Display the DataFrame with job summaries and sources in separate columns
+    except Exception as e:
+        st.error(f"Agent execution failed: {e}")
 
 if __name__ == "__main__":
     main()
