@@ -3,13 +3,24 @@ name = "react-search-agent"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
-dependencies = [
-    "black>=25.1.0",
-    "isort>=6.0.1",
-    "langchain>=0.3.27",
-    "langchain-openai>=0.3.32",
-    "langchain-tavily>=0.2.11",
-    "python-dotenv>=1.1.1",
-    "streamlit>=1.49.1",
+authors = [
+    { name = "sanjay2621", email = "sanjay.patel2621@gmail.com" }
 ]
+requires-python = ">=3.13"
+dependencies = [
+    "black>=26.10.1",
+    "isort>=9.0.2",
+    "langchain>=1.4.9",
+    "langchain-ollama>=1.1.0",
+    "langchain-openai>=1.7.4",
+    "langchain-tavily>=0.2.18",
+    "langsmith>=0.14.17",
+    "python-dotenv>=1.2.4",
+]
+
+[project.scripts]
+react-search-agent = "react_search_agent:main"
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
